@@ -1,0 +1,31 @@
+kind: Model
+api_version: v1beta1
+metadata:
+  display_name: Converter - SHETRAN to HiPIMS
+  name: converter-shetran-2-hipims
+  summary: A converter which takes the output from SHETRAN and converts it into data suitable for input to HiPIMS
+  publisher: Newcastle University
+  description: >
+    A description of the converter is needed here.
+spec:
+  inputs:
+    parameters:
+      - name: NAME
+        title: Run name
+        type: string
+        description: Name for the run, used in the title field of the metadata file.
+        default: PYRAMID shetran-2-hipims output
+        required: true
+    dataslots:
+      - name: Example SHETRAN output
+        description: >
+          Description of the dataset format
+        default:
+          - 
+        path: inputs
+        required: true
+  outputs:
+    datasets:
+      - name: outputs/metadata.json
+        type: JSON
+        description: Metadata for the outputs
