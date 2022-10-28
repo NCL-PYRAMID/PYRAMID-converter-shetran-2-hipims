@@ -9,12 +9,19 @@ metadata:
     A description of the converter is needed here.
 spec:
   inputs:
+    parameters:
+      - name: NAME
+        title: Run name
+        type: string
+        description: Name for the run, used in the title field of the metadata file.
+        default: PYRAMID <converter> shetran-2-hipims
+        required: false
     dataslots:
-      - name: Example SHETRAN output
+      - name: Conver-SHETRAN-to-Hipims
         description: >
           Description of the dataset format
         default:
-          - bd366c29-a7b7-4c9d-8b18-b0ffde5db192
+          - 84e9b447-fb38-42af-9034-7e739940ccfd
         path: inputs
         required: true
   outputs:
