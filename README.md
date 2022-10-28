@@ -71,9 +71,9 @@ The deployed model can be run in a DAFNI workflow. See the [DAFNI workflow docum
 
 ## Roadmap
 - [x] Initial Research  
-- [ ] Minimum viable product <-- You are Here  
-- [ ] Alpha Release  
-- [ ] Feature-Complete Release  
+- [x] Minimum viable product <-- You are Here  
+- [x] Alpha Release  
+- [x] Feature-Complete Release  
 
 ## Contributing
 TBD
