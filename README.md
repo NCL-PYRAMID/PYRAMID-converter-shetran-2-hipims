@@ -60,7 +60,7 @@ The model is containerised using Docker, and the image is _tar_'ed and _zip_'ed 
 
 ```
 docker build . -t pyramid-shetran-2-hipims
-docker save -o pyramid-dl-2-hipims.tar pyramid-shetran-2-hipims:latest
+docker save -o pyramid-shetran-2-hipims.tar pyramid-shetran-2-hipims:latest
 gzip pyramid-shetran-2-hipims.tar
 ```
 

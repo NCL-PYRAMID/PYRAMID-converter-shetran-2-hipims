@@ -1,6 +1,7 @@
 import imp
 import os
 import pathlib
+import datetime
 import shutil
 import fiona
 import rasterio
@@ -21,7 +22,7 @@ platform = os.getenv("PLATFORM")
 if platform=="docker":
     data_path = os.getenv("DATA_PATH", "/data")
 else:
-    data_path = os.getenv("DATA_PATH", "/Users/cusnow/Job/SHETRAN2Hipims/PYRAMID-converter-shetran-2-hipims/data")
+    data_path = os.getenv("DATA_PATH", "/Users/cusnow/Job/SHETRAN2Hipims/SHETRAN2Hipims/data")
 
 # INPUT data paths and files
 input_path = data_path / pathlib.Path("inputs")
@@ -131,3 +132,46 @@ q_end = np.array([q_end])
 Shetran_bound = np.r_[Shetran_bound.T, q_end]
 np.savetxt(output_path / f_inflows, Shetran_bound)
 print("inflow text generated!")
+
+title = os.getenv('TITLE', 'SHETRAN-2-hipims Simualtion')
+description = 'Convert outputs from SHETRAN to inputs for HiPIMS.'
+geojson = {}
+
+
+metadata = f"""{{
+  "@context": ["metadata-v1"],
+  "@type": "dcat:Dataset",
+  "dct:language": "en",
+  "dct:title": "{title}",
+  "dct:description": "{description}",
+  "dcat:keyword": [
+    "shetran"
+  ],
+  "dct:subject": "Environment",
+  "dct:license": {{
+    "@type": "LicenseDocument",
+    "@id": "https://creativecommons.org/licences/by/4.0/",
+    "rdfs:label": null
+  }},
+  "dct:creator": [{{"@type": "foaf:Organization"}}],
+  "dcat:contactPoint": {{
+    "@type": "vcard:Organization",
+    "vcard:fn": "DAFNI",
+    "vcard:hasEmail": "support@dafni.ac.uk"
+  }},
+  "dct:created": "{datetime.datetime.now().isoformat()}Z",
+  "dct:PeriodOfTime": {{
+    "type": "dct:PeriodOfTime",
+    "time:hasBeginning": null,
+    "time:hasEnd": null
+  }},
+  "dafni_version_note": "created",
+  "dct:spatial": {{
+    "@type": "dct:Location",
+    "rdfs:label": null
+  }},
+  "geojson": {geojson}
+}}
+"""
+with open(os.path.join(output_path, 'metadata.json'), 'w') as f:
+    f.write(metadata)
