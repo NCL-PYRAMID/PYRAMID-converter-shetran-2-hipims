@@ -1,5 +1,7 @@
 import imp
 import os
+import pathlib
+import shutil
 import fiona
 import rasterio
 import rasterio.mask
@@ -11,19 +13,39 @@ import matplotlib.pyplot as plt
 import h5py
 from scipy.interpolate import interp1d
 
-# file path
-f_root = os.getcwd()
-bound_line = "/Line2.shp"
-SHETRAN_cells = "/Tyne_at_Newcastle_DEM.asc"
-shetran_h5 = "/output_Tyne_at_Newcastle_shegraph.h5"
-f_output = "Shetran_bound.txt"
+###############################################################################
+# Paths
+###############################################################################
+# Setup base path
+platform = os.getenv("PLATFORM")
+if platform=="docker":
+    data_path = os.getenv("DATA_PATH", "/data")
+else:
+    data_path = os.getenv("DATA_PATH", "/Users/cusnow/Job/SHETRAN2Hipims/PYRAMID-converter-shetran-2-hipims/data")
+
+# INPUT data paths and files
+input_path = data_path / pathlib.Path("inputs")
+bound_line = input_path / pathlib.Path("Line2.shp")
+SHETRAN_cells = input_path / pathlib.Path("Tyne_at_Newcastle_DEM.asc")
+shetran_h5 = input_path / pathlib.Path("output_Tyne_at_Newcastle_shegraph.h5")
+
+# OUTPUT data paths and files
+output_path = data_path / pathlib.Path("outputs")
+
+# Remove the output path if it exists, and create a new one
+if output_path.exists() and output_path.is_dir():
+    shutil.rmtree(output_path)
+pathlib.Path.mkdir(output_path)
+
+f_inflows = "Shetran_bound.txt"
+f_mask = "She2HiMask.tif"
 
 # read Hipims simulation boundary 
-with fiona.open(f_root + bound_line,"r") as shapefile:
+with fiona.open(input_path / bound_line,"r") as shapefile:
     shapes = [feature["geometry"] for feature in shapefile]
 
 # read SHETRAN cells to extract cell numbers overlapped
-with rasterio.open(f_root + SHETRAN_cells) as src:
+with rasterio.open(input_path / SHETRAN_cells) as src:
     # read DEM and get DEM boundary
     demMasked = src.read(1, masked=True)
     out_image, out_transform = rasterio.mask.mask(src, shapes, crop=False)  
@@ -52,14 +74,15 @@ for i in range(bound_count):
     xi = int(x_bound[i])
     yi = int(y_bound[i])
     maskId[xi, yi] = i
-with rasterio.open("She2HiMask.tif", "w", **out_meta) as dest:
+with rasterio.open(output_path / f_mask, "w", **out_meta) as dest:
     dest.write(maskId,1)
 
+print("mask generated!")
 
 ### extract corresponding discharge from SHETRAN 
-with h5py.File(f_root + shetran_h5, 'r', driver='core') as hf:
+with h5py.File(input_path / shetran_h5, 'r', driver='core') as hf:
     discharge = hf["VARIABLES"]["  1 ovr_flow"]["value"][:] 
-
+print('h5 read!')
 bound_count = np.size(x_bound)
 source = []
 # Create Pandas Dataframes with Dates:
@@ -106,5 +129,5 @@ q_end = np.append([8*3600], q_end, axis=0)
 q_end = np.array([q_end])
 
 Shetran_bound = np.r_[Shetran_bound.T, q_end]
-np.savetxt(f_output, Shetran_bound)
-
+np.savetxt(output_path / f_inflows, Shetran_bound)
+print("inflow text generated!")
