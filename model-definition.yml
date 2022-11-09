@@ -1,7 +1,7 @@
 kind: Model
 api_version: v1beta1
 metadata:
-  display_name: Converter - SHETRAN to HiPIMS
+  display_name: PYRAMID <converter> SHETRAN to HiPIMS
   name: converter-shetran-2-hipims
   summary: A converter which takes the output from SHETRAN and converts it into data suitable for input to HiPIMS
   publisher: Newcastle University, Loughborough University
@@ -14,7 +14,7 @@ spec:
         title: Run name
         type: string
         description: Name for the run, used in the title field of the metadata file.
-        default: PYRAMID <converter> shetran-2-hipims
+        default: PYRAMID <converter> SHETRAN to HiPIMS
         required: false
     dataslots:
       - name: Convert-SHETRAN-to-HiPIMS
