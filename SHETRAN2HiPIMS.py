@@ -133,8 +133,8 @@ Shetran_bound = np.r_[Shetran_bound.T, q_end]
 np.savetxt(output_path / f_inflows, Shetran_bound)
 print("inflow text generated!")
 
-title = os.getenv('TITLE', 'SHETRAN-2-hipims Simualtion')
-description = 'Convert outputs from SHETRAN to inputs for HiPIMS.'
+title = os.getenv('TITLE', 'SHETRAN-2-HiPIMS Simulation')
+description = 'Convert outputs from SHETRAN to inputs for HiPIMS'
 geojson = {}
 
 

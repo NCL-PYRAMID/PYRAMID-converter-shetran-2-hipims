@@ -17,7 +17,7 @@ spec:
         default: PYRAMID <converter> shetran-2-hipims
         required: false
     dataslots:
-      - name: Conver-SHETRAN-to-Hipims
+      - name: Convert-SHETRAN-to-HiPIMS
         description: >
           Description of the dataset format
         default:
