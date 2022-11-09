@@ -1,0 +1,30 @@
+name: Upload Converter SHETRAN-2-HiPIMS to DAFNI
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Upload to DAFNI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+      - name: Docker Build
+        run: docker build . --file Dockerfile --tag pyramid-converter-shetran-2-hipims
+      - name: Compress docker image
+        run: docker save pyramid-converter-shetran-2-hipims:latest | gzip > pyramid-converter-shetran-2-hipims.tar.gz
+      - name: Set tag as env
+        run: echo "TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      #- name: Upload to DAFNI
+      #  uses: dafnifacility/dafni-model-uploader@v1.9
+      #  with:
+      #    definition-path: './model-definition.yml'
+      #    image-path: './pyramid-converter-shetran-2-hipims.tar.gz'
+      #    username: ${{ secrets.DAFNI_SERVICE_ACCOUNT_USERNAME }}
+      #    password: ${{ secrets.DAFNI_SERVICE_ACCOUNT_PASSWORD }}
+      #    version-message: ${{ env.TAG }}
+      #    parent-model: "51f12b14-abb8-4cbc-9559-39926e4fc509"
