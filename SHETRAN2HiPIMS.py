@@ -13,6 +13,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import h5py
 from scipy.interpolate import interp1d
+import pandas as pd
 
 ###############################################################################
 # Paths
@@ -23,6 +24,11 @@ if platform=="docker":
     data_path = os.getenv("DATA_PATH", "/data")
 else:
     data_path = os.getenv("DATA_PATH", "/Users/cusnow/Job/SHETRAN2Hipims/SHETRAN2Hipims/data")
+
+# INPUT data paramters (need to change to global for DAFNI)
+start_datetime = os.getenv("RUN_START_DATE", "2012-06-28 12:00:00")
+duration = os.getenv("HIPIMS_RUN_DURATION", 6) # hours
+end_datetime = str(pd.to_datetime(start_datetime) + pd.Timedelta(float(duration), "h"))
 
 # INPUT data paths and files
 input_path = data_path / pathlib.Path("inputs")
@@ -55,7 +61,7 @@ with rasterio.open(input_path / SHETRAN_cells) as src:
 
     # mask boundary
     mask_boundary = np.zeros_like(dem)
-    mask_boundary[out_image[0,:,:]>0] = 1
+    mask_boundary[out_image[0,:,:] > 0] = 1
 
     row, col = np.shape(mask_boundary)
     x = np.zeros_like(dem)
@@ -106,10 +112,10 @@ for i in range(bound_count):
                        index=pd.date_range("1989-12-31", 
                        periods=len(discharge[x+1,y+1,0,0,:]), 
                        freq="H"))
-    source_N = flows_N["flow"].loc["2012-06-28 12:00:00":"2012-06-28 20:00:00"]
-    source_E = flows_E["flow"].loc["2012-06-28 12:00:00":"2012-06-28 20:00:00"]
-    source_S = flows_S["flow"].loc["2012-06-28 12:00:00":"2012-06-28 20:00:00"]
-    source_W = flows_W["flow"].loc["2012-06-28 12:00:00":"2012-06-28 20:00:00"]
+    source_N = flows_N["flow"].loc[start_datetime : end_datetime]
+    source_E = flows_E["flow"].loc[start_datetime : end_datetime]
+    source_S = flows_S["flow"].loc[start_datetime : end_datetime]
+    source_W = flows_W["flow"].loc[start_datetime : end_datetime]
     sourcei = source_S - source_N + source_W - source_E
     source.append(sourcei)
 
