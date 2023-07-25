@@ -1,3 +1,12 @@
+###############################################################################
+# Converter - SHETRAN to HiPIMS
+# Xue Tong, Amy Green, Robin Wardle
+# July 2023
+###############################################################################
+
+###############################################################################
+# Python libraries
+###############################################################################
 import imp
 import os
 import pathlib
@@ -15,6 +24,16 @@ import h5py
 from scipy.interpolate import interp1d
 import pandas as pd
 from os.path import join
+import logging
+
+
+###############################################################################
+# Constants
+###############################################################################
+CONVERTER_RUN_FILENAME = "success"
+CONVERTER_LOG_FILENAME = "converter-s2h.log"
+METADATA_FILENAME = "metadata.json"
+
 
 ###############################################################################
 # Paths
@@ -24,12 +43,7 @@ platform = os.getenv("PLATFORM")
 if platform=="docker":
     data_path = os.getenv("DATA_PATH", "/data")
 else:
-    data_path = os.getenv("DATA_PATH", "/Users/cusnow/Job/SHETRAN2Hipims/SHETRAN2Hipims/data")
-
-# INPUT data paramters (need to change to global for DAFNI)
-start_datetime = pd.to_datetime(os.getenv("RUN_START_DATE", "2012-06-28 12:00:00"))
-duration = float(os.getenv("HIPIMS_RUN_DURATION", 6)) # hours
-end_datetime = start_datetime + pd.Timedelta(duration, "h"))
+    data_path = os.getenv("DATA_PATH", "./data")
 
 # INPUT data paths and files
 input_path = data_path / pathlib.Path("inputs")
@@ -39,15 +53,67 @@ shetran_h5 = input_path / pathlib.Path("output_Tyne_at_Newcastle_shegraph.h5")
 
 # OUTPUT data paths and files
 output_path = data_path / pathlib.Path("outputs")
-hipims_outpath = join(out_path, "HIPIMS")
-if not exists(hipims_outpath):
-    os.mkdir(hipims_outpath)
     
 # Remove the output path if it exists, and create a new one
 if output_path.exists() and output_path.is_dir():
     shutil.rmtree(output_path)
 pathlib.Path.mkdir(output_path)
 
+hipims_outpath = join(output_path, "HIPIMS")
+if not exists(hipims_outpath):
+    os.mkdir(hipims_outpath)
+
+
+###############################################################################
+# Logging
+###############################################################################
+# Configure logging
+logging.basicConfig()
+logging.root.setLevel(logging.INFO)
+
+# Logging instance
+logger = logging.getLogger(pathlib.PurePath(__file__).name)
+logger.propagate = False
+
+# Console messaging
+console_formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+console_handler = logging.StreamHandler(stream=sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(console_formatter)
+logger.addHandler(console_handler)
+
+# File logging
+file_formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:%(message)s')
+file_handler = logging.FileHandler(output_path / pathlib.Path(CONVERTER_RUN_LOG_FILENAME))
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
+
+logger.info("Logger initialised")
+
+# Some additional logging info
+logger.info("DATA_PATH = {}".format(data_path))
+logger.info("output_path = {}".format(output_path))
+
+
+###############################################################################
+# Environmental Parameters
+#   Parameters are passed as environment variables,
+#   i.e. they are strings and will need to be converted where necessary
+###############################################################################
+# INPUT data paramters (need to change to global for DAFNI)
+try:
+    start_datetime = pd.to_datetime(os.getenv("RUN_START_DATE", "2012-06-28 12:00:00"))
+    duration = float(os.getenv("HIPIMS_RUN_DURATION", 6.0)) # hours
+except (TypeError, ValueError, Exception) as e:
+    logger.error("Error converting parameter ", exc_info=e)
+    raise
+end_datetime = start_datetime + pd.Timedelta(duration, "h"))
+
+
+###############################################################################
+# Start Conversion
+###############################################################################
 f_inflows = "Shetran_bound.txt"
 f_mask = "She2HiMask.tif"
 
@@ -99,12 +165,12 @@ for i in range(bound_count):
 with rasterio.open(output_path / f_mask, "w", **out_meta) as dest:
     dest.write(maskId,1)
 
-print("mask generated!")
+logger.info("mask generated!")
 
 ### extract corresponding discharge from SHETRAN 
 with h5py.File(input_path / shetran_h5, 'r', driver='core') as hf:
     discharge = hf["VARIABLES"]["  1 ovr_flow"]["value"][:] 
-print('h5 read!')
+logger.info('h5 read!')
 bound_count = np.size(x_bound)
 source = []
 # Create Pandas Dataframes with Dates:
@@ -156,9 +222,12 @@ q_end = np.array([q_end])
 
 Shetran_bound = np.r_[Shetran_bound.T, q_end]
 np.savetxt(output_path / f_inflows, Shetran_bound)
-print("inflow text generated!")
+logger.info("inflow text generated!")
 
 
+###############################################################################
+# Metadata
+###############################################################################
 title = os.getenv('TITLE', 'SHETRAN-2-HiPIMS Simulation')
 description = 'Convert outputs from SHETRAN to inputs for HiPIMS'
 geojson = {}
@@ -199,5 +268,9 @@ metadata = f"""{{
   "geojson": {geojson}
 }}
 """
-with open(os.path.join(output_path, 'metadata.json'), 'w') as f:
+with open(os.path.join(output_path, METADATA_FILENAME), 'w') as f:
     f.write(metadata)
+
+# Finished successfully
+logger.info("Model execution completed successfully")
+pathlib.Path(os.path.join(output_path, CONVERTER_SUCCESS_FILENAME)).touch()

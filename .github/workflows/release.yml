@@ -24,7 +24,7 @@ jobs:
           echo $RELEASE_VERSION
           echo ${{ env.RELEASE_VERSION }}
       - name: Upload to DAFNI
-        uses: dafnifacility/dafni-model-uploader@v1.9
+        uses: dafnifacility/dafni-model-uploader@v1.11
         with:
           definition-path: './model-definition.yml'
           image-path: './pyramid-converter-shetran-2-hipims.tar.gz'

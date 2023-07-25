@@ -12,10 +12,25 @@ spec:
     parameters:
       - name: NAME
         title: Run name
-        type: string
         description: Name for the run, used in the title field of the metadata file.
+        type: string
         default: PYRAMID <converter> SHETRAN to HiPIMS
         required: false
+
+      - name: RUN_START_DATE
+        title: Start of the run
+        description: Run start date, format YYYY-MM-DD hh:mm:ss
+        type: string
+        default: "2012-06-28 12:00:00"
+        required: true
+
+      - name: HIPIMS_RUN_DURATION
+        title: HiPIMS run duration
+        description: Length of HiPIMS run duration in hours
+        type: number
+        default: 6.0
+        required: true
+               
     dataslots:
       - name: Convert-SHETRAN-to-HiPIMS
         description: >
