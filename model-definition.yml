@@ -1,5 +1,5 @@
-kind: Model
-api_version: v1beta1
+kind: M
+api_version: v1beta2
 metadata:
   display_name: PYRAMID <converter> SHETRAN to HiPIMS
   name: converter-shetran-2-hipims
@@ -39,7 +39,9 @@ spec:
           - 84e9b447-fb38-42af-9034-7e739940ccfd
         path: inputs
         required: true
+
   outputs:
     datasets:
       - name: PYRAMID <converter> SHETRAN to HiPIMS output
         description: Converted SHETRAN H5 files into mask tiff and text for hipims
+        type: txt
