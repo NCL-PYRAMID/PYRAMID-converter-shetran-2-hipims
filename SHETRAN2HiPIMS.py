@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import h5py
 from scipy.interpolate import interp1d
 import pandas as pd
+from os.path import join
 
 ###############################################################################
 # Paths
@@ -26,9 +27,9 @@ else:
     data_path = os.getenv("DATA_PATH", "/Users/cusnow/Job/SHETRAN2Hipims/SHETRAN2Hipims/data")
 
 # INPUT data paramters (need to change to global for DAFNI)
-start_datetime = os.getenv("RUN_START_DATE", "2012-06-28 12:00:00")
-duration = os.getenv("HIPIMS_RUN_DURATION", 6) # hours
-end_datetime = str(pd.to_datetime(start_datetime) + pd.Timedelta(float(duration), "h"))
+start_datetime = pd.to_datetime(os.getenv("RUN_START_DATE", "2012-06-28 12:00:00"))
+duration = float(os.getenv("HIPIMS_RUN_DURATION", 6)) # hours
+end_datetime = start_datetime + pd.Timedelta(duration, "h"))
 
 # INPUT data paths and files
 input_path = data_path / pathlib.Path("inputs")
@@ -38,7 +39,10 @@ shetran_h5 = input_path / pathlib.Path("output_Tyne_at_Newcastle_shegraph.h5")
 
 # OUTPUT data paths and files
 output_path = data_path / pathlib.Path("outputs")
-
+hipims_outpath = join(out_path, "HIPIMS")
+if not exists(hipims_outpath):
+    os.mkdir(hipims_outpath)
+    
 # Remove the output path if it exists, and create a new one
 if output_path.exists() and output_path.is_dir():
     shutil.rmtree(output_path)
@@ -74,6 +78,17 @@ with rasterio.open(input_path / SHETRAN_cells) as src:
     x_bound = x[mask_boundary > 0]
     y_bound = y[mask_boundary > 0]
 
+# get rainfall data for hipims
+rainfall_data_path = join(join(input_path, "HIPIMS"), "rain_source.txt")
+rainfall = pd.read_csv(rainfall_data_path, index_col=0)
+rainfall.index = pd.to_datetime(rainfall.index)
+hipims_rainfall = rainfall.loc[start_datetime : end_datetime]
+
+times2 = (np.arange(len(hipims_rainfall)) * 60 ** 2 / 15).astype(int)
+
+# save rainfall data in correct format for HIPIMS
+pd.DataFrame(hipims_rainfall.to_numpy(), index=times2).to_csv(join(hipims_rainfall, "rain_source.txt"), header=False)
+
 # generate new mask
 maskId = np.zeros_like(x) - 9999
 bound_count = np.size(x_bound)
@@ -93,23 +108,26 @@ print('h5 read!')
 bound_count = np.size(x_bound)
 source = []
 # Create Pandas Dataframes with Dates:
+#shetran_startdate = "1989-12-31" # I THINK THIS IS WRONG AND NEEDS CHANING TO START DATE OF RAIN_SOURCE.TXT 
+shetran_startdate = rainfall.index[0]
+
 for i in range(bound_count):
     x = int(x_bound[i])
     y = int(y_bound[i])
     flows_N = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,0,:]},
-                       index=pd.date_range("1989-12-31", 
+                       index=pd.date_range(shetran_startdate, 
                        periods=len(discharge[x+1,y+1,0,0,:]), 
                        freq="H"))
     flows_E = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,1,:]},
-                       index=pd.date_range("1989-12-31", 
+                       index=pd.date_range(shetran_startdate, 
                        periods=len(discharge[x+1,y+1,0,0,:]), 
                        freq="H"))
     flows_S = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,2,:]},
-                       index=pd.date_range("1989-12-31", 
+                       index=pd.date_range(shetran_startdate, 
                        periods=len(discharge[x+1,y+1,0,0,:]), 
                        freq="H"))
     flows_W = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,3,:]},
-                       index=pd.date_range("1989-12-31", 
+                       index=pd.date_range(shetran_startdate, 
                        periods=len(discharge[x+1,y+1,0,0,:]), 
                        freq="H"))
     source_N = flows_N["flow"].loc[start_datetime : end_datetime]
@@ -119,9 +137,10 @@ for i in range(bound_count):
     sourcei = source_S - source_N + source_W - source_E
     source.append(sourcei)
 
-# interpolate discharge time serie
-times1 = np.arange(9) * 3600
-times2 = np.arange(8 * 6) * 600
+# interpolate discharge time series
+
+times1 = np.arange(duration) * 3600 # hourly discharge
+
 shetran_sourcei = []
 q_end = []
 for i in range(bound_count):
@@ -132,12 +151,13 @@ for i in range(bound_count):
     shetran_sourcei.append(discharge2)
 
 Shetran_bound = np.vstack((times2, shetran_sourcei))
-q_end = np.append([8*3600], q_end, axis=0)
+q_end = np.append([len(duration) * 3600], q_end, axis=0) # check this
 q_end = np.array([q_end])
 
 Shetran_bound = np.r_[Shetran_bound.T, q_end]
 np.savetxt(output_path / f_inflows, Shetran_bound)
 print("inflow text generated!")
+
 
 title = os.getenv('TITLE', 'SHETRAN-2-HiPIMS Simulation')
 description = 'Convert outputs from SHETRAN to inputs for HiPIMS'
