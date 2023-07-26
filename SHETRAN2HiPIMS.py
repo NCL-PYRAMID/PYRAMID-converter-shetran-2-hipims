@@ -171,7 +171,7 @@ with rasterio.open(output_path / f_mask, "w", **out_meta) as dest:
 logger.info("mask generated!")
 
 ### extract corresponding discharge from SHETRAN 
-river_cell = PARAMETER_river_cell
+river_cell = 484  # PARAMETER_river_cell
 
 with h5py.File(input_path / shetran_h5, 'r', driver='core') as hf:
     f_keys = hf["VARIABLES"].keys()
