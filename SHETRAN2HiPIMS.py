@@ -171,47 +171,59 @@ with rasterio.open(output_path / f_mask, "w", **out_meta) as dest:
 logger.info("mask generated!")
 
 ### extract corresponding discharge from SHETRAN 
+river_cell = PARAMETER_river_cell
+
 with h5py.File(input_path / shetran_h5, 'r', driver='core') as hf:
-    discharge = hf["VARIABLES"]["  1 ovr_flow"]["value"][:]
+    f_keys = hf["VARIABLES"].keys()
+    f_key = [k for k in f_keys if 'ovr_flow' in k]
+    discharge = hf["VARIABLES"][f_key[0]]['value'][:]  # The variable is not always called "  1 ovr_flow", this will find it, else you can specify directly.
+    
+# Find which direction has the greatest flow - this is the orthagonal downstream flow. 
+direction = np.argmax(abs(np.sum(flows[river_cell, :, 0:1000], axis=1)))
+
+# Extract the SHETRAN flow from the H5 file.
+# The river cell was taken manually from the Element Numbering variable in the H5, but should be automated in the future.
+discharge = flows[river_cell, direction, :]  # Dimentions [cell no., N/E/S/W, time]
+
 logger.info('h5 read!')
-bound_count = np.size(x_bound)
+# bound_count = np.size(x_bound)
 source = []
+
 # Create Pandas Dataframes with Dates:
-#shetran_startdate = "1989-12-31" # I THINK THIS IS WRONG AND NEEDS CHANGING TO START DATE OF RAIN_SOURCE.TXT 
+# shetran_startdate = "1989-12-31" # I (Amy) THINK THIS IS WRONG AND NEEDS CHANGING TO START DATE OF RAIN_SOURCE.TXT 
 shetran_startdate = rainfall.index[0]
 
-print("-----")
-print(bound_count)
-print(x_bound)
-print("-----")
-print(y_bound)
-print("-----")
+flows = pd.DataFrame(data={'flow': discharge},
+                     index=pd.date_range(shetran_startdate,
+                     periods=len(discharge),
+                     freq="H")
+source = flows["flow"].loc[start_datetime : end_datetime]
 
-for i in range(bound_count):
-    x = int(x_bound[i])
-    y = int(y_bound[i])
-    flows_N = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,0,:]},
-                       index=pd.date_range(shetran_startdate,
-                       periods=len(discharge[x+1,y+1,0,0,:]),
-                       freq="H"))
-    flows_E = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,1,:]},
-                       index=pd.date_range(shetran_startdate,
-                       periods=len(discharge[x+1,y+1,0,0,:]),
-                       freq="H"))
-    flows_S = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,2,:]},
-                       index=pd.date_range(shetran_startdate,
-                       periods=len(discharge[x+1,y+1,0,0,:]),
-                       freq="H"))
-    flows_W = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,3,:]},
-                       index=pd.date_range(shetran_startdate,
-                       periods=len(discharge[x+1,y+1,0,0,:]),
-                       freq="H"))
-    source_N = flows_N["flow"].loc[start_datetime : end_datetime]
-    source_E = flows_E["flow"].loc[start_datetime : end_datetime]
-    source_S = flows_S["flow"].loc[start_datetime : end_datetime]
-    source_W = flows_W["flow"].loc[start_datetime : end_datetime]
-    sourcei = source_S - source_N + source_W - source_E
-    source.append(sourcei)
+# for i in range(bound_count):
+#     x = int(x_bound[i])
+#     y = int(y_bound[i])
+#     flows_N = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,0,:]},
+#                        index=pd.date_range(shetran_startdate,
+#                        periods=len(discharge[x+1,y+1,0,0,:]),
+#                        freq="H"))
+#     flows_E = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,1,:]},
+#                        index=pd.date_range(shetran_startdate,
+#                        periods=len(discharge[x+1,y+1,0,0,:]),
+#                        freq="H"))
+#     flows_S = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,2,:]},
+#                        index=pd.date_range(shetran_startdate,
+#                        periods=len(discharge[x+1,y+1,0,0,:]),
+#                        freq="H"))
+#     flows_W = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,3,:]},
+#                        index=pd.date_range(shetran_startdate,
+#                        periods=len(discharge[x+1,y+1,0,0,:]),
+#                        freq="H"))
+#     source_N = flows_N["flow"].loc[start_datetime : end_datetime]
+#     source_E = flows_E["flow"].loc[start_datetime : end_datetime]
+#     source_S = flows_S["flow"].loc[start_datetime : end_datetime]
+#     source_W = flows_W["flow"].loc[start_datetime : end_datetime]
+#     sourcei = source_S - source_N + source_W - source_E
+#     source.append(sourcei)
 
 # interpolate discharge time series
 
@@ -219,7 +231,7 @@ times1 = np.arange(duration) * 3600 # hourly discharge
 
 shetran_sourcei = []
 q_end = []
-for i in range(bound_count):
+for i in range(1):
     discharge1 = source[i][:]
     f = interp1d(times1, discharge1, kind='cubic')
     discharge2 = f(times2) / 1e6
@@ -230,6 +242,7 @@ Shetran_bound = np.vstack((times2, shetran_sourcei))
 q_end = np.append([len(duration) * 3600], q_end, axis=0) # check this
 q_end = np.array([q_end])
 
+print(Shetran_bound)
 Shetran_bound = np.r_[Shetran_bound.T, q_end]
 np.savetxt(output_path / f_inflows, Shetran_bound)
 logger.info("inflow text generated!")
