@@ -199,6 +199,10 @@ flows = pd.DataFrame(data={'flow': discharge},
                      freq="H")
 source = flows["flow"].loc[start_datetime : end_datetime]
 
+print(source)
+print("---")
+print(flows)
+print("---")
 # for i in range(bound_count):
 #     x = int(x_bound[i])
 #     y = int(y_bound[i])
