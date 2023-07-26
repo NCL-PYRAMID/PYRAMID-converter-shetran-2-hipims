@@ -24,13 +24,14 @@ import h5py
 from scipy.interpolate import interp1d
 import pandas as pd
 from os.path import join
+import sys
 import logging
 
 
 ###############################################################################
 # Constants
 ###############################################################################
-CONVERTER_RUN_FILENAME = "success"
+CONVERTER_SUCCESS_FILENAME = "success"
 CONVERTER_LOG_FILENAME = "converter-s2h.log"
 METADATA_FILENAME = "metadata.json"
 
@@ -60,7 +61,7 @@ if output_path.exists() and output_path.is_dir():
 pathlib.Path.mkdir(output_path)
 
 hipims_outpath = join(output_path, "HIPIMS")
-if not exists(hipims_outpath):
+if not os.path.exists(hipims_outpath):
     os.mkdir(hipims_outpath)
 
 
@@ -84,7 +85,7 @@ logger.addHandler(console_handler)
 
 # File logging
 file_formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:%(message)s')
-file_handler = logging.FileHandler(output_path / pathlib.Path(CONVERTER_RUN_LOG_FILENAME))
+file_handler = logging.FileHandler(output_path / pathlib.Path(CONVERTER_LOG_FILENAME))
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
@@ -103,12 +104,12 @@ logger.info("output_path = {}".format(output_path))
 ###############################################################################
 # INPUT data paramters (need to change to global for DAFNI)
 try:
-    start_datetime = pd.to_datetime(os.getenv("RUN_START_DATE", "2012-06-28 12:00:00"))
+    start_datetime = pd.to_datetime(os.getenv("RUN_START_DATE", "2012-06-28 12:00:00"), utc=True)
     duration = float(os.getenv("HIPIMS_RUN_DURATION", 6.0)) # hours
 except (TypeError, ValueError, Exception) as e:
     logger.error("Error converting parameter ", exc_info=e)
     raise
-end_datetime = start_datetime + pd.Timedelta(duration, "h"))
+end_datetime = start_datetime + pd.Timedelta(duration, "h")
 
 
 ###############################################################################
@@ -147,13 +148,15 @@ with rasterio.open(input_path / SHETRAN_cells) as src:
 # get rainfall data for hipims
 rainfall_data_path = join(join(input_path, "HIPIMS"), "rain_source.txt")
 rainfall = pd.read_csv(rainfall_data_path, index_col=0)
-rainfall.index = pd.to_datetime(rainfall.index)
+rainfall.index = pd.to_datetime(rainfall.index, utc=True)
 hipims_rainfall = rainfall.loc[start_datetime : end_datetime]
 
 times2 = (np.arange(len(hipims_rainfall)) * 60 ** 2 / 15).astype(int)
 
 # save rainfall data in correct format for HIPIMS
-pd.DataFrame(hipims_rainfall.to_numpy(), index=times2).to_csv(join(hipims_rainfall, "rain_source.txt"), header=False)
+hipims_rainfall_outpath = join(output_path, "HIPIMS")
+os.makedirs(hipims_rainfall_outpath, exist_ok=True)
+pd.DataFrame(hipims_rainfall.to_numpy(), index=times2).to_csv(join(hipims_rainfall_outpath, "rain_source.txt"), header=False)
 
 # generate new mask
 maskId = np.zeros_like(x) - 9999
@@ -169,32 +172,39 @@ logger.info("mask generated!")
 
 ### extract corresponding discharge from SHETRAN 
 with h5py.File(input_path / shetran_h5, 'r', driver='core') as hf:
-    discharge = hf["VARIABLES"]["  1 ovr_flow"]["value"][:] 
+    discharge = hf["VARIABLES"]["  1 ovr_flow"]["value"][:]
 logger.info('h5 read!')
 bound_count = np.size(x_bound)
 source = []
 # Create Pandas Dataframes with Dates:
-#shetran_startdate = "1989-12-31" # I THINK THIS IS WRONG AND NEEDS CHANING TO START DATE OF RAIN_SOURCE.TXT 
+#shetran_startdate = "1989-12-31" # I THINK THIS IS WRONG AND NEEDS CHANGING TO START DATE OF RAIN_SOURCE.TXT 
 shetran_startdate = rainfall.index[0]
+
+print("-----")
+print(bound_count)
+print(x_bound)
+print("-----")
+print(y_bound)
+print("-----")
 
 for i in range(bound_count):
     x = int(x_bound[i])
     y = int(y_bound[i])
     flows_N = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,0,:]},
-                       index=pd.date_range(shetran_startdate, 
-                       periods=len(discharge[x+1,y+1,0,0,:]), 
+                       index=pd.date_range(shetran_startdate,
+                       periods=len(discharge[x+1,y+1,0,0,:]),
                        freq="H"))
     flows_E = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,1,:]},
-                       index=pd.date_range(shetran_startdate, 
-                       periods=len(discharge[x+1,y+1,0,0,:]), 
+                       index=pd.date_range(shetran_startdate,
+                       periods=len(discharge[x+1,y+1,0,0,:]),
                        freq="H"))
     flows_S = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,2,:]},
-                       index=pd.date_range(shetran_startdate, 
-                       periods=len(discharge[x+1,y+1,0,0,:]), 
+                       index=pd.date_range(shetran_startdate,
+                       periods=len(discharge[x+1,y+1,0,0,:]),
                        freq="H"))
     flows_W = pd.DataFrame(data={'flow': discharge[x+1,y+1,0,3,:]},
-                       index=pd.date_range(shetran_startdate, 
-                       periods=len(discharge[x+1,y+1,0,0,:]), 
+                       index=pd.date_range(shetran_startdate,
+                       periods=len(discharge[x+1,y+1,0,0,:]),
                        freq="H"))
     source_N = flows_N["flow"].loc[start_datetime : end_datetime]
     source_E = flows_E["flow"].loc[start_datetime : end_datetime]
