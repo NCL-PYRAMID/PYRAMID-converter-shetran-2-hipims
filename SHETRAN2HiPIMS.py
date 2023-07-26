@@ -179,11 +179,11 @@ with h5py.File(input_path / shetran_h5, 'r', driver='core') as hf:
     discharge = hf["VARIABLES"][f_key[0]]['value'][:]  # The variable is not always called "  1 ovr_flow", this will find it, else you can specify directly.
     
 # Find which direction has the greatest flow - this is the orthagonal downstream flow. 
-direction = np.argmax(abs(np.sum(flows[river_cell, :, 0:1000], axis=1)))
+direction = np.argmax(abs(np.sum(discharge[river_cell, :, 0:1000], axis=1)))
 
 # Extract the SHETRAN flow from the H5 file.
 # The river cell was taken manually from the Element Numbering variable in the H5, but should be automated in the future.
-discharge = flows[river_cell, direction, :]  # Dimentions [cell no., N/E/S/W, time]
+discharge = discharge[river_cell, direction, :]  # Dimentions [cell no., N/E/S/W, time]
 
 logger.info('h5 read!')
 # bound_count = np.size(x_bound)
@@ -195,8 +195,8 @@ shetran_startdate = rainfall.index[0]
 
 flows = pd.DataFrame(data={'flow': discharge},
                      index=pd.date_range(shetran_startdate,
-                     periods=len(discharge),
-                     freq="H")
+                         periods=len(discharge),
+                         freq="H"))
 source = flows["flow"].loc[start_datetime : end_datetime]
 
 print(source)
