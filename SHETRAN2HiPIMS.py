@@ -26,6 +26,7 @@ import pandas as pd
 from os.path import join
 import sys
 import logging
+import subprocess
 
 
 ###############################################################################
@@ -104,13 +105,15 @@ logger.info("output_path = {}".format(output_path))
 ###############################################################################
 # INPUT data paramters (need to change to global for DAFNI)
 try:
-    start_datetime = pd.to_datetime(os.getenv("RUN_START_DATE", "2012-06-28 12:00:00"), utc=True)
+    start_datetime = pd.to_datetime(os.getenv("RUN_START_DATE", "2023-06-20 12:00:00"), utc=True)
     duration = float(os.getenv("HIPIMS_RUN_DURATION", 6.0)) # hours
 except (TypeError, ValueError, Exception) as e:
     logger.error("Error converting parameter ", exc_info=e)
     raise
 end_datetime = start_datetime + pd.Timedelta(duration, "h")
 
+print("\033[0;31;40m---> start_datetime: {}\033[0;37;40m".format(start_datetime))
+print("\033[0;31;40m---> end_datetime: {}\033[0;37;40m".format(end_datetime))
 
 ###############################################################################
 # Start Conversion
@@ -177,7 +180,9 @@ with h5py.File(input_path / shetran_h5, 'r', driver='core') as hf:
     f_keys = hf["VARIABLES"].keys()
     f_key = [k for k in f_keys if 'ovr_flow' in k]
     discharge = hf["VARIABLES"][f_key[0]]['value'][:]  # The variable is not always called "  1 ovr_flow", this will find it, else you can specify directly.
-    
+
+print("\033[0;31;40m---> discharge: \n{}\033[0;37;40m".format(discharge))
+
 # Find which direction has the greatest flow - this is the orthagonal downstream flow. 
 direction = np.argmax(abs(np.sum(discharge[river_cell, :, 0:1000], axis=1)))
 
@@ -190,6 +195,7 @@ logger.info('h5 read!')
 # Create Pandas Dataframes with Dates:
 # shetran_startdate = "1989-12-31" # I (Amy) THINK THIS IS WRONG AND NEEDS CHANGING TO START DATE OF RAIN_SOURCE.TXT 
 shetran_startdate = rainfall.index[0]  # Format: "1990-01-04 00:00:00"
+print("\033[0;31;40m---> shetran_startdate: {}\033[0;37;40m".format(shetran_startdate))
 
 flows = pd.DataFrame(data={'flow': discharge},
                      index=pd.date_range(shetran_startdate,
@@ -202,6 +208,11 @@ source = flows["flow"].loc[start_datetime : end_datetime]
 times1 = np.arange(duration) * 3600 # hourly discharge
 
 discharge1 = source[:-1]  # remove the last value, so that it is the same length as the times. This is a botch, I think the times could just be longer...
+print("\033[0;31;40m---> source: \n{}\033[0;37;40m".format(source))
+print("\033[0;31;40m---> discharge1: \n{}\033[0;37;40m".format(discharge1))
+print("\033[0;31;40m---> len(times1): {}\033[0;37;40m".format(len(times1)))
+print("\033[0;31;40m---> len(discharge1): {}\033[0;37;40m".format(len(discharge1)))
+
 f = interp1d(times1, discharge1, kind='cubic')
 discharge2 = f(times2) / 1e6
 
@@ -215,6 +226,15 @@ q_end = np.array([q_end])
 # Merge some rows to produce a 2 column dataset of times and flows:
 Shetran_bound = np.r_[Shetran_bound.T, q_end]
 np.savetxt(output_path / f_inflows, Shetran_bound)
+
+#completed = subprocess.run(["head", f_inflows], stdout=subprocess.PIPE, encoding="utf-8")
+#print("\033[0;31;40m---> 'head {}': \n{}\033[0;37;40m".format(f_inflows, completed.stdout))
+#completed = subprocess.run(["tail", f_inflows], stdout=subprocess.PIPE, encoding="utf-8")
+#print("\033[0;31;40m---> 'tail {}': \n{}\033[0;37;40m".format(f_inflows, completed.stdout))
+
+#print("\033[0;31;40m---> 'tail Shetran_bound': \n{}\033[0;37;40m".format(Shetran_bound))
+
+
 logger.info("inflow text generated!")
 
 
