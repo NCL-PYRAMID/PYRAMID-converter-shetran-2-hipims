@@ -198,23 +198,34 @@ flows = pd.DataFrame(data={'flow': discharge},
                          freq="H"))
 source = flows["flow"].loc[start_datetime : end_datetime]
 
+if len(source)==0:
+    text = f'No flows were extracted from SHETRAN! This is likely to do with the date parameters. shetran_startdate ({shetran_startdate}) should be within the start ({start_datetime}) and end ({end_datetime}) dates.'
+    print(text)
+    logger.info(text) 
+
 # interpolate discharge time series
+source_duration_secs = (source.index[-1] - source.index[0]).seconds  # Duration the source data covers
+shetran_timestep_secs = (source.index[1] - source.index[0]).seconds  # Duration of each source timestep
 
-times1 = np.arange(duration) * 3600 # hourly discharge
+# Then create some new timesteps for interpolating from/to:
+shetran_timesteps = np.arange(0, (source_duration_secs + shetran_timestep_secs), shetran_timestep_secs) # hourly discharge (seconds)
+hipims_timesteps = np.arange(0, ((len(source)-1)*shetran_timestep_secs)+rainfall_timestep_secs, rainfall_timestep_secs)  # 15 minute discharge (seconds)
+# times1 = np.arange(duration) * 3600 # hourly discharge
 
-discharge1 = source[:-1]  # remove the last value, so that it is the same length as the times. This is a botch, I think the times could just be longer...
-f = interp1d(times1, discharge1, kind='cubic')
-discharge2 = f(times2) / 1e6
+# print(shetran_timesteps, "---", hipims_timesteps, "---", source.values)
+f = interp1d(shetran_timesteps, source.values, kind='cubic')
+
+discharge2 = f(hipims_timesteps) / 1e6
 
 # Stack the times and the shetran data:
-Shetran_bound = np.vstack((times2, discharge2))
+Shetran_bound = np.vstack((hipims_timesteps, discharge2))
 
 # Add on the final shetran time and data point (missed from interpolation):
-q_end = np.append([duration * 3600], [source[-1]], axis=0) # check this - Ben thinks this is just dur*3600, not len(dur)*3600.
-q_end = np.array([q_end])
+# q_end = np.append([duration * 3600], [source[-1]], axis=0) # check this - Ben thinks this is just dur*3600, not len(dur)*3600.
+# q_end = np.array([q_end])
 
 # Merge some rows to produce a 2 column dataset of times and flows:
-Shetran_bound = np.r_[Shetran_bound.T, q_end]
+Shetran_bound = np.r_[Shetran_bound.T]  # , q_end]
 np.savetxt(output_path / f_inflows, Shetran_bound)
 logger.info("inflow text generated!")
 
