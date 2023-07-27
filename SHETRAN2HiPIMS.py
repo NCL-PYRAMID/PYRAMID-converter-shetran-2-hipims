@@ -156,6 +156,7 @@ rainfall_data_path = join(join(input_path, "HIPIMS"), "rain_source.txt")
 rainfall = pd.read_csv(rainfall_data_path, index_col=0)
 rainfall.index = pd.to_datetime(rainfall.index, utc=True)
 hipims_rainfall = rainfall.loc[start_datetime : end_datetime]
+hipims_rainfall = hipims_rainfall / 1000 /3600  # Convert from mm/hr to m/s
 rainfall_timestep_secs = (hipims_rainfall.index[1] - hipims_rainfall.index[0]).seconds # duration of rainfall timestep in  seconds
 
 times2 = (np.arange(len(hipims_rainfall)) * 15 * 60).astype(int) # 15 minute timesteps for HiPIMS rainfall inputs, duplicated below in hipims_timesteps.
@@ -165,7 +166,7 @@ times2 = (np.arange(len(hipims_rainfall)) * 15 * 60).astype(int) # 15 minute tim
 hipims_rainfall_outpath = join(output_path, "HIPIMS")
 os.makedirs(hipims_rainfall_outpath, exist_ok=True)
 hipims_rainfall_output = pd.DataFrame(hipims_rainfall.to_numpy(), index=times2)
-hipims_rainfall_output.to_csv(join(hipims_rainfall_outpath, "rain_source.txt"), header=False)
+hipims_rainfall_output.to_csv(join(hipims_rainfall_outpath, "rain_source.txt"), header=False, sep = " ")
 
 # generate new mask
 maskId = np.zeros_like(x) - 9999
@@ -242,6 +243,11 @@ Shetran_bound = np.vstack((hipims_timesteps, discharge2))
 
 # Merge some rows to produce a 2 column dataset of times and flows:
 Shetran_bound = np.r_[Shetran_bound.T]  # , q_end]
+
+# Add on a column of 0s - these represent flow in the y direction, the columns are time, flow in x, flow in y. For the Tyne, the flow is from the west (x).
+Shetran_bound = np.append(Shetran_bound, np.zeros([len(Shetran_bound),1]), 1)
+
+# Save the data
 np.savetxt(output_path / f_inflows, Shetran_bound)
 
 #completed = subprocess.run(["head", f_inflows], stdout=subprocess.PIPE, encoding="utf-8")
@@ -254,16 +260,16 @@ np.savetxt(output_path / f_inflows, Shetran_bound)
 
 logger.info("inflow text generated!")
 
-print("--- HiPIMS start")
-print(hipims_rainfall_output[0:5])
-print("--- HiPIMS end")
-print(hipims_rainfall_output[-5:1])
-print("--- SHETRAN source")
-print(source.values)
-print("--- SHETRAN start")
-print(Shetran_bound[0:10])
-print("--- SHETRAN end")
-print(Shetran_bound[-10:-1])
+# print("--- HiPIMS start")
+# print(hipims_rainfall_output[0:5])
+# print("--- HiPIMS end")
+# print(hipims_rainfall_output[-5:1])
+# print("--- SHETRAN source")
+# print(source.values)
+# print("--- SHETRAN start")
+# print(Shetran_bound[0:10])
+# print("--- SHETRAN end")
+# print(Shetran_bound[-10:-1])
 
 ###############################################################################
 # Metadata
