@@ -115,6 +115,9 @@ end_datetime = start_datetime + pd.Timedelta(duration, "h")
 print("\033[0;31;40m---> start_datetime: {}\033[0;37;40m".format(start_datetime))
 print("\033[0;31;40m---> end_datetime: {}\033[0;37;40m".format(end_datetime))
 
+# Read in the river cell to extract SHETRAN flows from:
+river_cell = os.getenv("SHETRAN_RIVER_CELL", 484) # 484 is the Tyne near Tyne Bridge
+
 ###############################################################################
 # Start Conversion
 ###############################################################################
@@ -153,15 +156,17 @@ rainfall_data_path = join(join(input_path, "HIPIMS"), "rain_source.txt")
 rainfall = pd.read_csv(rainfall_data_path, index_col=0)
 rainfall.index = pd.to_datetime(rainfall.index, utc=True)
 hipims_rainfall = rainfall.loc[start_datetime : end_datetime]
+hipims_rainfall = hipims_rainfall / 1000 /3600  # Convert from mm/hr to m/s
 rainfall_timestep_secs = (hipims_rainfall.index[1] - hipims_rainfall.index[0]).seconds # duration of rainfall timestep in  seconds
 
-times2 = (np.arange(len(hipims_rainfall)) * 60 ** 2 / 15).astype(int)
+times2 = (np.arange(len(hipims_rainfall)) * 15 * 60).astype(int) # 15 minute timesteps for HiPIMS rainfall inputs, duplicated below in hipims_timesteps.
+# TODO - change this so that the timesteps are taken from the input data, so that it doesn't always have to be 15 minutes.
 
 # save rainfall data in correct format for HIPIMS
 hipims_rainfall_outpath = join(output_path, "HIPIMS")
 os.makedirs(hipims_rainfall_outpath, exist_ok=True)
 hipims_rainfall_output = pd.DataFrame(hipims_rainfall.to_numpy(), index=times2)
-hipims_rainfall_output.to_csv(join(hipims_rainfall_outpath, "rain_source.txt"), header=False)
+hipims_rainfall_output.to_csv(join(hipims_rainfall_outpath, "rain_source.txt"), header=False, sep = " ")
 
 # generate new mask
 maskId = np.zeros_like(x) - 9999
@@ -176,13 +181,12 @@ with rasterio.open(output_path / f_mask, "w", **out_meta) as dest:
 logger.info("mask generated!")
 
 ### extract corresponding discharge from SHETRAN 
-river_cell = 484  # PARAMETER_river_cell
 
 with h5py.File(input_path / shetran_h5, 'r', driver='core') as hf:
     f_keys = hf["VARIABLES"].keys()
     f_key = [k for k in f_keys if 'ovr_flow' in k]
     discharge = hf["VARIABLES"][f_key[0]]['value'][:]  # The variable is not always called "  1 ovr_flow", this will find it, else you can specify directly.
-
+# TODO: ensure that this works with other visualisation plan inputs (i.e. when ovr_flow for grids, not rivers, is included).
 print("\033[0;31;40m---> discharge: \n{}\033[0;37;40m".format(discharge))
 
 # Find which direction has the greatest flow - this is the orthagonal downstream flow. 
@@ -201,8 +205,8 @@ print("\033[0;31;40m---> shetran_startdate: {}\033[0;37;40m".format(shetran_star
 
 flows = pd.DataFrame(data={'flow': discharge},
                      index=pd.date_range(shetran_startdate,
-                         periods=len(discharge),
-                         freq="H"))
+                                         periods=len(discharge),
+                                         freq="H"))
 source = flows["flow"].loc[start_datetime : end_datetime]
 
 if len(source)==0:
@@ -217,6 +221,7 @@ shetran_timestep_secs = (source.index[1] - source.index[0]).seconds  # Duration 
 # Then create some new timesteps for interpolating from/to:
 shetran_timesteps = np.arange(0, (source_duration_secs + shetran_timestep_secs), shetran_timestep_secs) # hourly discharge (seconds)
 hipims_timesteps = np.arange(0, ((len(source)-1)*shetran_timestep_secs)+rainfall_timestep_secs, rainfall_timestep_secs)  # 15 minute discharge (seconds)
+# TODO: check whether you need hipims_timesteps if you already have times2 above
 # times1 = np.arange(duration) * 3600 # hourly discharge
 
 #print("\033[0;31;40m---> source: \n{}\033[0;37;40m".format(source))
@@ -238,6 +243,11 @@ Shetran_bound = np.vstack((hipims_timesteps, discharge2))
 
 # Merge some rows to produce a 2 column dataset of times and flows:
 Shetran_bound = np.r_[Shetran_bound.T]  # , q_end]
+
+# Add on a column of 0s - these represent flow in the y direction, the columns are time, flow in x, flow in y. For the Tyne, the flow is from the west (x).
+Shetran_bound = np.append(Shetran_bound, np.zeros([len(Shetran_bound),1]), 1)
+
+# Save the data
 np.savetxt(output_path / f_inflows, Shetran_bound)
 
 #completed = subprocess.run(["head", f_inflows], stdout=subprocess.PIPE, encoding="utf-8")
@@ -250,16 +260,16 @@ np.savetxt(output_path / f_inflows, Shetran_bound)
 
 logger.info("inflow text generated!")
 
-print("--- HiPIMS start")
-print(hipims_rainfall_output[0:5])
-print("--- HiPIMS end")
-print(hipims_rainfall_output[-5:1])
-print("--- SHETRAN source")
-print(source.values)
-print("--- SHETRAN start")
-print(Shetran_bound[0:10])
-print("--- SHETRAN end")
-print(Shetran_bound[-10:-1])
+# print("--- HiPIMS start")
+# print(hipims_rainfall_output[0:5])
+# print("--- HiPIMS end")
+# print(hipims_rainfall_output[-5:1])
+# print("--- SHETRAN source")
+# print(source.values)
+# print("--- SHETRAN start")
+# print(Shetran_bound[0:10])
+# print("--- SHETRAN end")
+# print(Shetran_bound[-10:-1])
 
 ###############################################################################
 # Metadata
