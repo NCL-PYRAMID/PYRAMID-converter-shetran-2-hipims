@@ -30,6 +30,13 @@ spec:
         type: number
         default: 6.0
         required: true
+
+      - name: SHETRAN_RIVER_CELL
+        title: SHETRAN river cell input
+        description: The number of the SHETRAN river cell that is used as an input into HiPIMS. This number can be determined by overlaying the element numbers (from the h5 file) with the HiPIMS domain boundary.
+        type: number
+        default: 484
+        required: true
                
     dataslots:
       - name: Convert-SHETRAN-to-HiPIMS
