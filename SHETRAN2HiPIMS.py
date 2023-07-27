@@ -107,6 +107,8 @@ logger.info("output_path = {}".format(output_path))
 try:
     start_datetime = pd.to_datetime(os.getenv("RUN_START_DATE", "2023-06-20 12:00:00"), utc=True)
     duration = float(os.getenv("HIPIMS_RUN_DURATION", 6.0)) # hours
+    # Read in the river cell to extract SHETRAN flows from:
+    river_cell = int(os.getenv("SHETRAN_RIVER_CELL", 484)) # 484 is the Tyne near Tyne Bridge
 except (TypeError, ValueError, Exception) as e:
     logger.error("Error converting parameter ", exc_info=e)
     raise
@@ -115,8 +117,6 @@ end_datetime = start_datetime + pd.Timedelta(duration, "h")
 print("\033[0;31;40m---> start_datetime: {}\033[0;37;40m".format(start_datetime))
 print("\033[0;31;40m---> end_datetime: {}\033[0;37;40m".format(end_datetime))
 
-# Read in the river cell to extract SHETRAN flows from:
-river_cell = os.getenv("SHETRAN_RIVER_CELL", 484) # 484 is the Tyne near Tyne Bridge
 
 ###############################################################################
 # Start Conversion
