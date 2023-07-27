@@ -115,6 +115,9 @@ end_datetime = start_datetime + pd.Timedelta(duration, "h")
 print("\033[0;31;40m---> start_datetime: {}\033[0;37;40m".format(start_datetime))
 print("\033[0;31;40m---> end_datetime: {}\033[0;37;40m".format(end_datetime))
 
+# Read in the river cell to extract SHETRAN flows from:
+river_cell = os.getenv("SHETRAN_RIVER_CELL", 484) # 484 is the Tyne near Tyne Bridge
+
 ###############################################################################
 # Start Conversion
 ###############################################################################
@@ -155,7 +158,8 @@ rainfall.index = pd.to_datetime(rainfall.index, utc=True)
 hipims_rainfall = rainfall.loc[start_datetime : end_datetime]
 rainfall_timestep_secs = (hipims_rainfall.index[1] - hipims_rainfall.index[0]).seconds # duration of rainfall timestep in  seconds
 
-times2 = (np.arange(len(hipims_rainfall)) * 60 ** 2 / 15).astype(int)
+times2 = (np.arange(len(hipims_rainfall)) * 15 * 60).astype(int) # 15 minute timesteps for HiPIMS rainfall inputs, duplicated below in hipims_timesteps.
+# TODO - change this so that the timesteps are taken from the input data, so that it doesn't always have to be 15 minutes.
 
 # save rainfall data in correct format for HIPIMS
 hipims_rainfall_outpath = join(output_path, "HIPIMS")
@@ -176,13 +180,12 @@ with rasterio.open(output_path / f_mask, "w", **out_meta) as dest:
 logger.info("mask generated!")
 
 ### extract corresponding discharge from SHETRAN 
-river_cell = 484  # PARAMETER_river_cell
 
 with h5py.File(input_path / shetran_h5, 'r', driver='core') as hf:
     f_keys = hf["VARIABLES"].keys()
     f_key = [k for k in f_keys if 'ovr_flow' in k]
     discharge = hf["VARIABLES"][f_key[0]]['value'][:]  # The variable is not always called "  1 ovr_flow", this will find it, else you can specify directly.
-
+# TODO: ensure that this works with other visualisation plan inputs (i.e. when ovr_flow for grids, not rivers, is included).
 print("\033[0;31;40m---> discharge: \n{}\033[0;37;40m".format(discharge))
 
 # Find which direction has the greatest flow - this is the orthagonal downstream flow. 
@@ -201,8 +204,8 @@ print("\033[0;31;40m---> shetran_startdate: {}\033[0;37;40m".format(shetran_star
 
 flows = pd.DataFrame(data={'flow': discharge},
                      index=pd.date_range(shetran_startdate,
-                         periods=len(discharge),
-                         freq="H"))
+                                         periods=len(discharge),
+                                         freq="H"))
 source = flows["flow"].loc[start_datetime : end_datetime]
 
 if len(source)==0:
@@ -217,6 +220,7 @@ shetran_timestep_secs = (source.index[1] - source.index[0]).seconds  # Duration 
 # Then create some new timesteps for interpolating from/to:
 shetran_timesteps = np.arange(0, (source_duration_secs + shetran_timestep_secs), shetran_timestep_secs) # hourly discharge (seconds)
 hipims_timesteps = np.arange(0, ((len(source)-1)*shetran_timestep_secs)+rainfall_timestep_secs, rainfall_timestep_secs)  # 15 minute discharge (seconds)
+# TODO: check whether you need hipims_timesteps if you already have times2 above
 # times1 = np.arange(duration) * 3600 # hourly discharge
 
 #print("\033[0;31;40m---> source: \n{}\033[0;37;40m".format(source))
