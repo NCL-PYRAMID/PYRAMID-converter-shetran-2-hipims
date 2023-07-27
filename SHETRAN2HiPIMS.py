@@ -150,6 +150,7 @@ rainfall_data_path = join(join(input_path, "HIPIMS"), "rain_source.txt")
 rainfall = pd.read_csv(rainfall_data_path, index_col=0)
 rainfall.index = pd.to_datetime(rainfall.index, utc=True)
 hipims_rainfall = rainfall.loc[start_datetime : end_datetime]
+rainfall_timestep_secs = (hipims_rainfall.index[1] - hipims_rainfall.index[0]).seconds # duration of rainfall timestep in  seconds
 
 times2 = (np.arange(len(hipims_rainfall)) * 60 ** 2 / 15).astype(int)
 
