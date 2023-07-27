@@ -160,7 +160,8 @@ times2 = (np.arange(len(hipims_rainfall)) * 60 ** 2 / 15).astype(int)
 # save rainfall data in correct format for HIPIMS
 hipims_rainfall_outpath = join(output_path, "HIPIMS")
 os.makedirs(hipims_rainfall_outpath, exist_ok=True)
-pd.DataFrame(hipims_rainfall.to_numpy(), index=times2).to_csv(join(hipims_rainfall_outpath, "rain_source.txt"), header=False)
+hipims_rainfall_output = pd.DataFrame(hipims_rainfall.to_numpy(), index=times2)
+hipims_rainfall_output.to_csv(join(hipims_rainfall_outpath, "rain_source.txt"), header=False)
 
 # generate new mask
 maskId = np.zeros_like(x) - 9999
@@ -249,6 +250,16 @@ np.savetxt(output_path / f_inflows, Shetran_bound)
 
 logger.info("inflow text generated!")
 
+print("--- HiPIMS start")
+print(hipims_rainfall_output[0:5])
+print("--- HiPIMS end")
+print(hipims_rainfall_output[-5:1])
+print("--- SHETRAN source")
+print(source.values)
+print("--- SHETRAN start")
+print(Shetran_bound[0:10])
+print("--- SHETRAN end")
+print(Shetran_bound[-10:-1])
 
 ###############################################################################
 # Metadata
