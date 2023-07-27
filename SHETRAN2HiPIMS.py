@@ -186,12 +186,10 @@ direction = np.argmax(abs(np.sum(discharge[river_cell, :, 0:1000], axis=1)))
 discharge = discharge[river_cell, direction, :]  # Dimentions [cell no., N/E/S/W, time]
 
 logger.info('h5 read!')
-# bound_count = np.size(x_bound)
-# source = []
 
 # Create Pandas Dataframes with Dates:
 # shetran_startdate = "1989-12-31" # I (Amy) THINK THIS IS WRONG AND NEEDS CHANGING TO START DATE OF RAIN_SOURCE.TXT 
-shetran_startdate = rainfall.index[0]
+shetran_startdate = rainfall.index[0]  # Format: "1990-01-04 00:00:00"
 
 flows = pd.DataFrame(data={'flow': discharge},
                      index=pd.date_range(shetran_startdate,
@@ -203,10 +201,7 @@ source = flows["flow"].loc[start_datetime : end_datetime]
 
 times1 = np.arange(duration) * 3600 # hourly discharge
 
-# shetran_sourcei = []
-# q_end = []
-# for i in range(1):
-discharge1 = source #[i][:]
+discharge1 = source[:-1]  # remove the last value, so that it is the same length as the times. This is a botch, I think the times could just be longer...
 f = interp1d(times1, discharge1, kind='cubic')
 discharge2 = f(times2) / 1e6
 
@@ -214,7 +209,7 @@ discharge2 = f(times2) / 1e6
 Shetran_bound = np.vstack((times2, discharge2))
 
 # Add on the final shetran time and data point (missed from interpolation):
-q_end = np.append([len(duration) * 3600], [source[-1]], axis=0) # check this
+q_end = np.append([duration * 3600], [source[-1]], axis=0) # check this - Ben thinks this is just dur*3600, not len(dur)*3600.
 q_end = np.array([q_end])
 
 # Merge some rows to produce a 2 column dataset of times and flows:
